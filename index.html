@@ -10,17 +10,28 @@
         .hidden { display: none; }
         h1 { color: #2c3e50; font-size: 22px; text-align: center; margin-bottom: 5px; }
         .info { text-align: center; color: #666; margin-bottom: 20px; font-size: 14px; }
-        .option-btn { display: block; width: 100%; padding: 14px; margin: 10px 0; border: 2px solid #eee; border-radius: 8px; cursor: pointer; background: white; text-align: left; font-size: 16px; transition: 0.2s; }
-        .option-btn:hover { border-color: #3498db; background: #f0f9ff; }
+        .option-btn { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 14px; margin: 10px 0; border: 2px solid #eee; border-radius: 8px; cursor: pointer; background: white; text-align: left; font-size: 16px; transition: 0.2s; }
+        .option-btn:hover:not(.disabled) { border-color: #3498db; background: #f0f9ff; }
+        
+        /* 正解・不正解のスタイル */
+        .correct-ans { background-color: #fff176 !important; border-color: #fbc02d !important; font-weight: bold; }
+        .wrong-ans { background-color: #ff8a80 !important; border-color: #d32f2f !important; color: white !important; font-weight: bold; }
+        .disabled { cursor: default; pointer-events: none; }
+
         #timer { font-size: 28px; font-weight: bold; color: #e74c3c; }
         #score-display { font-size: 22px; color: #2980b9; font-weight: bold; }
         #hint-text { color: #d35400; background: #fff5e6; padding: 10px; border-radius: 6px; margin-top: 10px; font-size: 14px; line-height: 1.4; border-left: 4px solid #f39c12; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #fff; }
         th, td { border-bottom: 1px solid #eee; padding: 12px; text-align: left; }
-        .rank-1 { background: #fff9c4; font-weight: bold; }
+        
+        .review-item { background: #fafafa; border: 1px solid #eee; padding: 15px; margin-bottom: 10px; border-radius: 8px; }
+        .review-q { font-weight: bold; margin-bottom: 5px; }
+        .review-a { color: #d32f2f; font-size: 14px; }
+        .review-correct { color: #2e7d32; font-size: 14px; font-weight: bold; }
+
         input[type="text"] { width: 100%; padding: 12px; margin: 20px 0; border: 2px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
-        .start-btn { width: 100%; padding: 15px; background: #3498db; color: white; border: none; border-radius: 6px; font-size: 18px; cursor: pointer; font-weight: bold; }
-        .start-btn:hover { background: #2980b9; }
+        .btn-main { width: 100%; padding: 15px; background: #3498db; color: white; border: none; border-radius: 6px; font-size: 18px; cursor: pointer; font-weight: bold; margin-top: 10px; }
+        .btn-main:hover { background: #2980b9; }
     </style>
 </head>
 <body>
@@ -30,7 +41,7 @@
         <h1>動詞の語法・特訓30題</h1>
         <p class="info">制限時間：1分30秒<br>正解:+5 / 不正解:-5 / ヒント正解:+3</p>
         <input type="text" id="username" placeholder="ニックネームを入力" maxlength="12">
-        <button class="start-btn" onclick="startGame()">挑戦を始める！</button>
+        <button class="btn-main" onclick="startGame()">挑戦を始める！</button>
     </div>
 
     <div id="quiz-screen" class="hidden">
@@ -46,49 +57,60 @@
     </div>
 
     <div id="result-screen" class="hidden">
-        <h2 style="text-align: center;">タイムアップ！</h2>
+        <h2 style="text-align: center;">Time Up!</h2>
         <p id="final-score" style="font-size: 32px; font-weight: bold; text-align: center; color: #e74c3c;"></p>
-        <h3 style="margin-top: 30px;">🏆 ランキング (Top 20)</h3>
-        <table id="leaderboard">
-            <thead><tr><th>順位</th><th>名前</th><th>スコア</th></tr></thead>
-            <tbody></tbody>
-        </table>
-        <button onclick="location.reload()" class="start-btn" style="margin-top: 20px; background: #95a5a6;">タイトルに戻る</button>
+        
+        <button class="btn-main" id="review-btn" onclick="showReview()">答えをチェック</button>
+        
+        <div id="leaderboard-section">
+            <h3 style="margin-top: 30px;">🏆 ランキング (Top 20)</h3>
+            <table id="leaderboard">
+                <thead><tr><th>順位</th><th>名前</th><th>スコア</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div id="review-section" class="hidden">
+            <h3 style="margin-top: 30px;">❌ 間違えた問題の復習</h3>
+            <div id="review-container"></div>
+        </div>
+
+        <button onclick="location.reload()" class="btn-main" style="margin-top: 20px; background: #95a5a6;">タイトルに戻る</button>
     </div>
 </div>
 
 <script>
     const quizData = [
-        { q: "My sister is going to (       ) a professional soccer player next month.", opts: ["marry with", "marry to", "marry", "get marry"], ans: 2, hint: "marryは他動詞なので、直後に目的語（人）を置きます。" },
-        { q: "Could you (       ) me the way to the nearest convenience store?", opts: ["say", "tell", "speak", "talk"], ans: 1, hint: "「人に（情報を）教える/伝える」ときは tell + 人 + 物 の形。" },
-        { q: "The teacher (       ) that we should study harder for the final exam.", opts: ["said", "told", "talked", "spoke"], ans: 0, hint: "that節を直接目的語に取れるのは say です。" },
-        { q: "Our coach made (       ) the field ten times as a penalty.", opts: ["us run", "us to run", "us running", "that we run"], ans: 0, hint: "使役動詞 make + O + 原形不定詞。「Oに～させる」" },
-        { q: "I saw my classmate (       ) at the bus stop yesterday afternoon.", opts: ["to wait", "waiting", "waited", "to be waiting"], ans: 1, hint: "知覚動詞 see + O + ～ing。「Oが～しているのを見かける」" },
-        { q: "I was so tired after club activities that I (       ) on the sofa.", opts: ["lied", "laid", "lay", "lain"], ans: 2, hint: "lie（横たわる）の過去形は lay。自動詞です。" },
-        { q: "This song always (       ) me of my junior high school days.", opts: ["remembers", "recalls", "reminds", "recognizes"], ans: 2, hint: "remind A of B で「AにBを思い出させる」。" },
-        { q: "I (       ) that we meet at the station at 10 a.m.", opts: ["suggested", "suggested to them", "suggested us", "suggested them to"], ans: 0, hint: "suggestは suggest that S (should) 原形 の形。suggest 人 to doは不可。" },
-        { q: "It is important that everyone (       ) the school rules.", opts: ["follows", "follow", "following", "to follow"], ans: 1, hint: "importantなどの形容詞の後ろのthat節では動詞は原形になります。" },
-        { q: "We (       ) the plan for the school festival for two hours.", opts: ["discussed about", "discussed", "talked", "mentioned about"], ans: 1, hint: "discussは他動詞。aboutなどの前置詞は不要。" },
-        { q: "We (       ) him on winning the speech contest.", opts: ["celebrated", "praised", "congratulated", "honored"], ans: 2, hint: "congratulate + 人 + on ～ で「人の～を祝う」。" },
-        { q: "I found the math exam (       ) than I had expected.", opts: ["easy", "easily", "to be easily", "ease"], ans: 0, hint: "find + O + C (形容詞) で「OがCだとわかる/思う」。" },
-        { q: "You should consider (       ) a part-time job during summer vacation.", opts: ["take", "to take", "taking", "taken"], ans: 2, hint: "considerは動名詞(-ing)を目的語に取る動詞です。" },
-        { q: "Please (       ) me what happened at the party last night.", opts: ["say", "speak", "tell", "talk"], ans: 2, hint: "tell + 人 + 内容。" },
-        { q: "Don't (       ) your bag on the floor like that.", opts: ["lie", "lay", "lain", "lying"], ans: 1, hint: "「～を置く」という他動詞は lay (lay-laid-laid)。" },
-        { q: "My parents (       ) me go to the concert alone.", opts: ["let", "allowed", "permitted", "got"], ans: 0, hint: "let + O + 原形不定詞。「Oが～するのを許す」。" },
-        { q: "I (       ) a stranger calling my name in the crowd.", opts: ["heard", "listened", "hoped", "wanted"], ans: 0, hint: "知覚動詞 hear + O + ～ing。「Oが～しているのが聞こえる」。" },
-        { q: "It is necessary that he (       ) the truth immediately.", opts: ["knows", "know", "knowing", "to know"], ans: 1, hint: "It is necessary that S + (should) 原形。" },
+        { q: "My sister is going to (       ) a soccer player next month.", opts: ["marry with", "marry to", "marry", "get marry"], ans: 2, hint: "marryは他動詞。直後に人を置く。" },
+        { q: "Could you (       ) me the way to the station?", opts: ["say", "tell", "speak", "talk"], ans: 1, hint: "tell + 人 + 物 の形。" },
+        { q: "The teacher (       ) that we should study harder.", opts: ["said", "told", "talked", "spoke"], ans: 0, hint: "that節を直接つなげるのは say。" },
+        { q: "Our coach made (       ) the field ten times.", opts: ["us run", "us to run", "us running", "that we run"], ans: 0, hint: "make + O + 原形。「Oに～させる」。" },
+        { q: "I saw my classmate (       ) at the bus stop yesterday.", opts: ["to wait", "waiting", "waited", "to be waiting"], ans: 1, hint: "see + O + ～ing。「Oが～しているのを見る」。" },
+        { q: "I was so tired that I (       ) on the sofa.", opts: ["lied", "laid", "lay", "lain"], ans: 2, hint: "lie（横たわる）の過去形は lay。" },
+        { q: "This song always (       ) me of my junior high school days.", opts: ["remembers", "recalls", "reminds", "recognizes"], ans: 2, hint: "remind A of B (AにBを思い出させる)。" },
+        { q: "I (       ) that we meet at the station at 10 a.m.", opts: ["suggested", "suggested to them", "suggested us", "suggested them to"], ans: 0, hint: "suggest that S (should) 原形。" },
+        { q: "It is important that everyone (       ) the school rules.", opts: ["follows", "follow", "following", "to follow"], ans: 1, hint: "importantの後のthat節内は動詞の原形。" },
+        { q: "We (       ) the plan for the festival for two hours.", opts: ["discussed about", "discussed", "talked", "mentioned about"], ans: 1, hint: "discussは他動詞。aboutは不要。" },
+        { q: "We (       ) him on winning the speech contest.", opts: ["celebrated", "praised", "congratulated", "honored"], ans: 2, hint: "congratulate + 人 + on ～。" },
+        { q: "I found the math exam (       ) than I had expected.", opts: ["easy", "easily", "to be easily", "ease"], ans: 0, hint: "find + O + C (形容詞)。" },
+        { q: "You should consider (       ) a part-time job.", opts: ["take", "to take", "taking", "taken"], ans: 2, hint: "consider + 動名詞(-ing)。" },
+        { q: "Please (       ) me what happened at the party.", opts: ["say", "speak", "tell", "talk"], ans: 2, hint: "tell + 人 + 内容。" },
+        { q: "Don't (       ) your bag on the floor like that.", opts: ["lie", "lay", "lain", "lying"], ans: 1, hint: "「～を置く」は他動詞 lay。" },
+        { q: "My parents (       ) me go to the concert alone.", opts: ["let", "allowed", "permitted", "got"], ans: 0, hint: "let + O + 原形。" },
+        { q: "I (       ) a stranger calling my name in the crowd.", opts: ["heard", "listened", "hoped", "wanted"], ans: 0, hint: "hear + O + ～ing。" },
+        { q: "It is necessary that he (       ) the truth immediately.", opts: ["knows", "know", "knowing", "to know"], ans: 1, hint: "necessary that S + 原形。" },
         { q: "Many students (       ) that the new library was very useful.", opts: ["said", "told", "spoke", "talked"], ans: 0, hint: "that節を導くのは say。" },
-        { q: "Let's (       ) the environmental issues in class tomorrow.", opts: ["discuss about", "discuss", "talk", "speak"], ans: 1, hint: "discussは他動詞なので前置詞不要。" },
-        { q: "I'll (       ) you to my parents when they come here.", opts: ["introduce", "suggest", "remind", "congratulate"], ans: 0, hint: "introduce A to B で「AをBに紹介する」。" },
-        { q: "He (       ) me to finish my homework by tomorrow.", opts: ["said", "told", "suggested", "proposed"], ans: 1, hint: "tell + 人 + to do の形を取れる動詞。" },
-        { q: "I (       ) his advice very helpful for my future.", opts: ["found", "looked", "seemed", "thought to"], ans: 0, hint: "find + O + C。「OがCだとわかる」。" },
-        { q: "The news (       ) me that there was an accident nearby.", opts: ["said", "told", "spoke", "talked"], ans: 1, hint: "無生物主語 + tell + 人 + that節。「～が教えてくれた」。" },
-        { q: "Why don't you (       ) down and rest for a while?", opts: ["lay", "lie", "laid", "lying"], ans: 1, hint: "「横たわる」という自動詞の原形。" },
-        { q: "I (       ) you on your graduation from high school.", opts: ["congratulate", "celebrate", "suggest", "remind"], ans: 0, hint: "congratulate + 人 + on ～。" },
-        { q: "It is essential that she (       ) here on time tomorrow.", opts: ["is", "be", "was", "will be"], ans: 1, hint: "essential (不可欠な) + that S + 原形。" },
-        { q: "They (       ) him a great leader of the team.", opts: ["considered", "thought", "believed to", "regarded"], ans: 0, hint: "consider + O + C (名詞/形容詞) で「OをCとみなす」。" },
-        { q: "Can you (       ) me of the deadline for the report?", opts: ["remember", "recall", "remind", "recognize"], ans: 2, hint: "remind + 人 + of 物。「人に物を思い出させる」。" },
-        { q: "I (       ) taking a rest before we start the next task.", opts: ["suggest", "tell", "say", "want"], ans: 0, hint: "suggest + -ing で「～することを提案する」。" }
+        { q: "Let's (       ) the environmental issues in class.", opts: ["discuss about", "discuss", "talk", "speak"], ans: 1, hint: "discuss + 目的語。" },
+        { q: "I'll (       ) you to my parents when they come here.", opts: ["introduce", "suggest", "remind", "congratulate"], ans: 0, hint: "introduce A to B。" },
+        { q: "He (       ) me to finish my homework by tomorrow.", opts: ["said", "told", "suggested", "proposed"], ans: 1, hint: "tell + 人 + to do。" },
+        { q: "I (       ) his advice very helpful for my future.", opts: ["found", "looked", "seemed", "thought to"], ans: 0, hint: "find + O + C。" },
+        { q: "The news (       ) me that there was an accident nearby.", opts: ["said", "told", "spoke", "talked"], ans: 1, hint: "tell + 人 + that節。" },
+        { q: "Why don't you (       ) down and rest for a while?", opts: ["lay", "lie", "laid", "lying"], ans: 1, hint: "「横たわる」自動詞の原形。" },
+        { q: "I (       ) you on your graduation.", opts: ["congratulate", "celebrate", "suggest", "remind"], ans: 0, hint: "congratulate + 人 + on ～。" },
+        { q: "It is essential that she (       ) here on time tomorrow.", opts: ["is", "be", "was", "will be"], ans: 1, hint: "essential + that S + 原形。" },
+        { q: "They (       ) him a great leader of the team.", opts: ["considered", "thought", "believed to", "regarded"], ans: 0, hint: "consider + O + C (名詞)。" },
+        { q: "Can you (       ) me of the deadline for the report?", opts: ["remember", "recall", "remind", "recognize"], ans: 2, hint: "remind + 人 + of 物。" },
+        { q: "I (       ) taking a rest before we start.", opts: ["suggest", "tell", "say", "want"], ans: 0, hint: "suggest + -ing。" }
     ];
 
     let score = 0;
@@ -97,6 +119,7 @@
     let hintUsed = false;
     let timerInterval;
     let playerName = "";
+    let mistakes = []; // 間違えた問題を記録
 
     function startGame() {
         playerName = document.getElementById('username').value.trim() || "匿名高校生";
@@ -118,8 +141,7 @@
     function updateTimerDisplay() {
         let mins = Math.floor(timeLeft / 60);
         let secs = timeLeft % 60;
-        document.getElementById('timer').innerText = 
-            `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        document.getElementById('timer').innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
 
     function nextQuestion() {
@@ -137,8 +159,8 @@
         currentQuestion.opts.forEach((opt, index) => {
             const btn = document.createElement('button');
             btn.className = 'option-btn';
-            btn.innerText = opt;
-            btn.onclick = () => checkAnswer(index);
+            btn.innerHTML = `<span>${opt}</span><span class="mark"></span>`;
+            btn.onclick = () => checkAnswer(index, btn);
             container.appendChild(btn);
         });
     }
@@ -150,14 +172,40 @@
         document.getElementById('hint-btn').classList.add('hidden');
     }
 
-    function checkAnswer(selectedIndex) {
-        if (selectedIndex === currentQuestion.ans) {
+    function checkAnswer(selectedIndex, clickedBtn) {
+        // ボタンを無効化
+        const buttons = document.querySelectorAll('.option-btn');
+        buttons.forEach(b => b.classList.add('disabled'));
+
+        const isCorrect = selectedIndex === currentQuestion.ans;
+        
+        if (isCorrect) {
             score += hintUsed ? 3 : 5;
+            clickedBtn.classList.add('correct-ans');
+            clickedBtn.querySelector('.mark').innerText = "〇";
         } else {
             score -= 5;
+            clickedBtn.classList.add('wrong-ans');
+            clickedBtn.querySelector('.mark').innerText = "×";
+            // 正解を黄色く表示
+            buttons[currentQuestion.ans].classList.add('correct-ans');
+            buttons[currentQuestion.ans].querySelector('.mark').innerText = "〇";
+            
+            // 間違いリストに追加
+            mistakes.push({
+                q: currentQuestion.q,
+                yourAns: currentQuestion.opts[selectedIndex],
+                correctAns: currentQuestion.opts[currentQuestion.ans],
+                hint: currentQuestion.hint
+            });
         }
+        
         document.getElementById('score-display').innerText = `Score: ${score}`;
-        nextQuestion();
+
+        // 0.8秒待って次の問題へ
+        setTimeout(() => {
+            if (timeLeft > 0) nextQuestion();
+        }, 800);
     }
 
     function endGame() {
@@ -169,16 +217,37 @@
         displayLeaderboard();
     }
 
+    function showReview() {
+        document.getElementById('leaderboard-section').classList.add('hidden');
+        document.getElementById('review-btn').classList.add('hidden');
+        document.getElementById('review-section').classList.remove('hidden');
+        
+        const container = document.getElementById('review-container');
+        if (mistakes.length === 0) {
+            container.innerHTML = "<p>全問正解です！素晴らしい！</p>";
+            return;
+        }
+
+        container.innerHTML = mistakes.map(m => `
+            <div class="review-item">
+                <div class="review-q">Q. ${m.q}</div>
+                <div class="review-a">あなたの答え: ${m.yourAns} ×</div>
+                <div class="review-correct">正解: ${m.correctAns} 〇</div>
+                <div style="font-size:12px; color:#666; margin-top:5px;">解説: ${m.hint}</div>
+            </div>
+        `).join('');
+    }
+
     function saveScore(name, score) {
-        let scores = JSON.parse(localStorage.getItem('verb_grammar_scores') || "[]");
+        let scores = JSON.parse(localStorage.getItem('verb_scores_v3') || "[]");
         scores.push({name, score, date: new Date().toLocaleDateString()});
         scores.sort((a, b) => b.score - a.score);
         scores = scores.slice(0, 20);
-        localStorage.setItem('verb_grammar_scores', JSON.stringify(scores));
+        localStorage.setItem('verb_scores_v3', JSON.stringify(scores));
     }
 
     function displayLeaderboard() {
-        const scores = JSON.parse(localStorage.getItem('verb_grammar_scores') || "[]");
+        const scores = JSON.parse(localStorage.getItem('verb_scores_v3') || "[]");
         const tbody = document.querySelector('#leaderboard tbody');
         tbody.innerHTML = scores.map((s, i) => `
             <tr class="${i === 0 ? 'rank-1' : ''}">
